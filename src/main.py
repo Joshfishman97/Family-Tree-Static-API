@@ -3,22 +3,17 @@ This module takes care of starting the API Server, Loading the DB and Adding the
 """
 import os
 from flask import Flask, request, jsonify, url_for
-from flask_migrate import Migrate
-from flask_swagger import swagger
 from flask_cors import CORS
 from utils import APIException, generate_sitemap
-from admin import setup_admin
-from models import db, User
+from datastructures import FamilyStructure
 #from models import Person
 
 app = Flask(__name__)
 app.url_map.strict_slashes = False
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DB_CONNECTION_STRING')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-MIGRATE = Migrate(app, db)
-db.init_app(app)
 CORS(app)
-setup_admin(app)
+
+# create the jackson family object
+jackson_family = FamilyStructure("Jackson")
 
 # Handle/serialize errors like a JSON object
 @app.errorhandler(APIException)
@@ -30,16 +25,47 @@ def handle_invalid_usage(error):
 def sitemap():
     return generate_sitemap(app)
 
-@app.route('/user', methods=['GET'])
+@app.route('/members', methods=['GET'])
 def handle_hello():
 
+    # this is how you can use the Family datastructure by calling its methods
+    members = fishman_family.get_all_members()
     response_body = {
-        "msg": "Hello, this is your GET /user response "
+        "family": members
     }
-
     return jsonify(response_body), 200
 
-# this only runs if `$ python src/main.py` is executed
+@app.route('/member', methods=['POST'])
+def post_member():
+    new_member = request.get_json()
+    members = fishman_family.add_member(new_member)
+    response_body = {
+        "added": new_member,
+        "family": members
+    }
+    return jsonify(response_body ), 200
+
+@app.route('/member/<int:id>', methods=['DELETE'])
+def delete_member(id):
+    deleted_member = fishman_family.delete_member(id)
+    response_body = {
+        "deleted": deleted_member,
+    }
+    return jsonify(response_body ), 200
+
+@app.route('/descendants/<int:id>')
+def get_descendants(id):
+    descendants = fishman_family.get_descendants(id)
+    response_body = {
+        "Descendants": descendants,
+    }
+    return jsonify(response_body ), 200
+
+
+
+
+
+# this only runs if `$ python src/app.py` is executed
 if __name__ == '__main__':
     PORT = int(os.environ.get('PORT', 3000))
-    app.run(host='0.0.0.0', port=PORT, debug=False)
+    app.run(host='0.0.0.0', port=PORT, debug=True)
